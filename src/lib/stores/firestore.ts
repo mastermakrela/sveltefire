@@ -5,6 +5,7 @@ import type {
   CollectionReference,
   DocumentReference,
   Firestore,
+  DocumentData,
 } from "firebase/firestore";
 
 interface DocStore<T> {
@@ -70,7 +71,7 @@ export function docStore<T = any>(
 }
 
 interface CollectionStore<T> {
-  subscribe: (cb: (value: T | []) => void) => void | (() => void);
+  subscribe: (cb: (value: T[] | []) => void) => void | (() => void);
   ref: CollectionReference<T> | Query<T> | null;
 }
 
@@ -80,11 +81,12 @@ interface CollectionStore<T> {
  * @param  {[]} startWith optional default data
  * @returns a store with realtime updates on collection data
  */
-export function collectionStore<T>(
+export function collectionStore<T extends { id: string; ref: DocumentReference<DocumentData> }>(
   firestore: Firestore,
   ref: string | Query<T> | CollectionReference<T>,
   startWith: T[] = []
-): CollectionStore<T[]> {
+  // ): CollectionStore<T> {
+){
   let unsubscribe: () => void;
 
   // Fallback for SSR
@@ -108,18 +110,18 @@ export function collectionStore<T>(
     };
   }
 
-  const colRef = typeof ref === "string" ? collection(firestore, ref) : ref;
+  const colRef = typeof ref === "string" ? (collection(firestore, ref) as CollectionReference<T>) : ref;
 
-  const { subscribe } = writable(startWith, (set) => {
-    unsubscribe = onSnapshot(colRef, (snapshot) => {
-      const data = snapshot.docs.map((s) => {
-        return { id: s.id, ref: s.ref, ...s.data() } as T;
-      });
-      set(data);
-    });
+  const { subscribe } = writable<(T & { id: string; ref: DocumentReference<DocumentData> })[]>(startWith, (set) => {
+		unsubscribe = onSnapshot(colRef, (snapshot) => {
+			const data = snapshot.docs.map((s) => {
+				return { ...s.data(), id: s.id, ref: s.ref } as T;
+			});
+			set(data);
+		});
 
-    return () => unsubscribe();
-  });
+		return () => unsubscribe();
+	});
 
   return {
     subscribe,
