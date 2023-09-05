@@ -71,8 +71,13 @@ export function docStore<T = any>(
 }
 
 interface CollectionStore<T> {
-  subscribe: (cb: (value: T[] | (T & { id: string; ref: DocumentReference<T> })[] | []) => void) => void | (() => void);
-  ref: CollectionReference<T> | Query<T> | null;
+	subscribe: (cb: (value: ExtendedData<T>[] | []) => void) => void | (() => void);
+	ref: CollectionReference<T> | Query<T> | null;
+}
+
+export type ExtendedData<T> = T & { 
+  id: string;
+  ref: DocumentReference<T>;
 }
 
 /**
@@ -84,7 +89,7 @@ interface CollectionStore<T> {
 export function collectionStore<T>(
   firestore: Firestore,
   ref: string | Query<T> | CollectionReference<T>,
-  startWith: T[] = []
+  startWith: ExtendedData<T>[] = []
   ): CollectionStore<T> {
   let unsubscribe: () => void;
 
